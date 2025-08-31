@@ -6,8 +6,12 @@
   },
   "crons": [
     {
-      "path": "/api/morning-nudge",
-      "schedule": "55 7 * * *"
+      "path": "/api/scheduler",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/evening-reflection",
+      "schedule": "0 22 * * *"
     }
   ]
 }
