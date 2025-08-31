@@ -3,147 +3,103 @@ import TelegramBot from 'node-telegram-bot-api';
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const notionToken = process.env.NOTION_TOKEN;
 const databaseId = process.env.NOTION_DATABASE_ID;
-const bot = new TelegramBot(token);
 
-async function saveToNotion(message, reply, moment = 'chat') {
-  // Skip saving if Notion not configured
+// Belangrijk: geen polling op serverless
+const bot = new TelegramBot(token || '', { polling: false });
+
+async function saveToNotion(message: string, reply: string, moment = 'chat') {
   if (!notionToken || !databaseId) {
-    console.log('Notion not configured, skipping save');
+    console.log('[Notion] Not configured -> skip', { hasToken: !!notionToken, hasDb: !!databaseId });
     return;
   }
-
   try {
-    const response = await fetch('https://api.notion.com/v1/pages', {
+    const body = {
+      parent: { database_id: databaseId },
+      properties: {
+        DateTime: { date: { start: new Date().toISOString() } },
+        Moment: { select: { name: moment } },
+        Message: { rich_text: [{ text: { content: message.substring(0, 2000) } }] },
+        Reply:   { rich_text: [{ text: { content: reply.substring(0, 2000) } }] },
+        Energy: parseEnergyFromText(reply),
+        SleepHours: parseSleepHoursFromText(reply),
+        SleepStart: parseSleepStartFromText(reply)
+      }
+    };
+
+    console.log('[Notion] POST /v1/pages start');
+    const r = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${notionToken}`,
         'Content-Type': 'application/json',
         'Notion-Version': '2022-06-28'
       },
-      body: JSON.stringify({
-        parent: { database_id: databaseId },
-        properties: {
-          DateTime: { 
-            date: { 
-              start: new Date().toISOString() 
-            } 
-          },
-          Moment: { 
-            select: { 
-              name: moment 
-            } 
-          },
-          Message: { 
-            rich_text: [{ 
-              text: { 
-                content: message.substring(0, 2000) // Notion has character limits
-              } 
-            }] 
-          },
-          Reply: { 
-            rich_text: [{ 
-              text: { 
-                content: reply.substring(0, 2000) 
-              } 
-            }] 
-          },
-          Energy: parseEnergyFromText(reply),
-          SleepHours: parseSleepHoursFromText(reply),
-          SleepStart: parseSleepStartFromText(reply)
-        }
-      })
+      body: JSON.stringify(body)
     });
 
-    if (!response.ok) {
-      console.error('Notion API error:', response.status, await response.text());
+    if (!r.ok) {
+      const txt = await r.text();
+      console.error('[Notion] API error', r.status, txt);
     } else {
-      console.log('Successfully saved to Notion');
+      const json = await r.json();
+      console.log('[Notion] Saved OK', { id: json?.id });
     }
-  } catch (error) {
-    console.error('Notion save error:', error);
+  } catch (e) {
+    console.error('[Notion] Save crash', e);
   }
 }
 
-function parseEnergyFromText(text) {
-  // Look for patterns like "energy: 7", "7/10", "energie 8", etc.
-  const energyPattern = /(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i;
-  const match = text.match(energyPattern);
-  if (match) {
-    const number = parseInt(match[1] || match[2]);
-    if (number >= 1 && number <= 10) {
-      return { number: number };
-    }
-  }
-  return null;
+function parseEnergyFromText(text: string) {
+  const m = text.match(/(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i);
+  if (!m) return null;
+  const n = parseInt(m[1] || m[2]!, 10);
+  return n >= 1 && n <= 10 ? { number: n } : null;
 }
-
-function parseSleepHoursFromText(text) {
-  // Look for patterns like "slept 7 hours", "7u geslapen", etc.
-  const sleepPattern = /(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i;
-  const match = text.match(sleepPattern);
-  if (match) {
-    const hours = parseFloat(match[1]);
-    if (hours >= 0 && hours <= 15) {
-      return { number: hours };
-    }
-  }
-  return null;
+function parseSleepHoursFromText(text: string) {
+  const m = text.match(/(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return n >= 0 && n <= 15 ? { number: n } : null;
 }
-
-function parseSleepStartFromText(text) {
-  // Look for patterns like "bed at 23:30", "naar bed om 22:00", etc.
-  const bedtimePattern = /(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i;
-  const match = text.match(bedtimePattern);
-  if (match) {
-    return { 
-      rich_text: [{ 
-        text: { 
-          content: match[1] 
-        } 
-      }] 
-    };
-  }
-  return null;
+function parseSleepStartFromText(text: string) {
+  const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
+  return m ? { rich_text: [{ text: { content: m[1] } }] } : null;
 }
-
 function determineMoment() {
-  const now = new Date();
-  const hour = now.getHours();
-  
-  if (hour >= 6 && hour < 9) return 'morning';
-  if (hour >= 9 && hour < 12) return 'work';
-  if (hour >= 12 && hour < 15) return 'lunch';
-  if (hour >= 15 && hour < 18) return 'afternoon';
-  if (hour >= 18 && hour < 23) return 'evening';
+  const h = new Date().getHours();
+  if (h >= 6 && h < 9) return 'morning';
+  if (h >= 9 && h < 12) return 'work';
+  if (h >= 12 && h < 15) return 'lunch';
+  if (h >= 15 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 23) return 'evening';
   return 'night';
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  console.log('[Webhook] Received');
   try {
     const update = req.body;
-    
-    if (update.message) {
-      const chatId = update.message.chat.id;
-      const text = update.message.text;
-      
-      console.log(`Ontvangen bericht van ${chatId}: ${text}`);
-      console.log('Debug - notionToken exists:', !!notionToken, 'databaseId exists:', !!databaseId);
+    console.log('[Webhook] Raw body', JSON.stringify(update)?.slice(0, 500));
 
-      
+    if (!token) {
+      console.error('[Telegram] TELEGRAM_BOT_TOKEN missing');
+    }
+
+    if (update?.message) {
+      const chatId = update.message.chat.id;
+      const text = update.message.text || '';
+      console.log('[Webhook] Message', { chatId, text });
+
       let replyMessage = '';
-      
-      // Simpele responses
-      if (text?.toLowerCase().includes('hoi') || text?.toLowerCase().includes('hallo')) {
+      const lc = text.toLowerCase();
+
+      if (lc.includes('hoi') || lc.includes('hallo')) {
         replyMessage = 'Hoi Elles! 👋 Ik ben je persoonlijke assistant. Ik ga je helpen met dagelijkse check-ins!';
-        await bot.sendMessage(chatId, replyMessage);
-      }
-      else if (text?.toLowerCase().includes('help')) {
+      } else if (lc.includes('help')) {
         replyMessage = `🤖 Ik stuur je automatisch berichten op deze tijden:
-        
+
 📅 07:55 - Ochtend motivatie
 💼 08:30 - Werkdag start (ma-vr)  
 🍽️ 12:45 - Lunch reminder
@@ -151,21 +107,29 @@ export default async function handler(req, res) {
 🌙 22:00 - Avond reflectie
 
 Je kunt altijd gewoon met me chatten!`;
-        await bot.sendMessage(chatId, replyMessage);
-      }
-      else {
+      } else {
         replyMessage = `Bedankt voor je bericht: "${text}". Ik heb het genoteerd! 📝`;
-        await bot.sendMessage(chatId, replyMessage);
       }
-      
-      // Save interaction to Notion
+
+      // Telegram reply
+      try {
+        console.log('[Telegram] sendMessage ->', { chatId, preview: replyMessage.slice(0, 80) });
+        const resp = await bot.sendMessage(chatId, replyMessage);
+        console.log('[Telegram] sendMessage OK', { message_id: resp?.message_id });
+      } catch (e) {
+        console.error('[Telegram] sendMessage error', e);
+      }
+
+      // Notion save
       const moment = determineMoment();
       await saveToNotion(text, replyMessage, moment);
+    } else {
+      console.log('[Webhook] No message field, ignoring');
     }
-    
-    res.status(200).json({ status: 'ok' });
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+
+    return res.status(200).json({ status: 'ok' });
+  } catch (e) {
+    console.error('[Webhook] Crash', e);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
