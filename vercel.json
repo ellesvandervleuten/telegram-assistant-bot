@@ -8,6 +8,6 @@
     {
       "path": "/api/morning-nudge",
       "schedule": "55 7 * * *"
-    },
+    }
   ]
 }
