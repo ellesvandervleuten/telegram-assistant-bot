@@ -1,5 +1,4 @@
 import TelegramBot from 'node-telegram-bot-api';
-
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const notionToken = process.env.NOTION_TOKEN;
 const databaseId = process.env.NOTION_DATABASE_ID;
