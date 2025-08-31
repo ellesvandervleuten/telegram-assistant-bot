@@ -1,0 +1,20 @@
+name: Call Vercel Webhook
+on:
+  schedule:
+    # Elke 30 minuten
+    - cron: '*/30 * * * *'
+  # Optioneel: handmatig kunnen triggeren
+  workflow_dispatch:
+
+jobs:
+  call-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel API
+        run: |
+          curl -X POST https://jouw-vercel-app-url.vercel.app/api/webhook \
+            -H "Content-Type: application/json" \
+            -d '{"source": "github-actions"}'
+        
+      - name: Log result
+        run: echo "Webhook called successfully"
