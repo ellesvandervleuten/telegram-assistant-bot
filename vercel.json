@@ -10,18 +10,6 @@
       "schedule": "55 7 * * *"
     },
     {
-      "path": "/api/work-start", 
-      "schedule": "30 8 * * 1-5"
-    },
-    {
-      "path": "/api/lunch-reminder",
-      "schedule": "45 12 * * *"
-    },
-    {
-      "path": "/api/afternoon-check",
-      "schedule": "0 15 * * *"
-    },
-    {
       "path": "/api/evening-reflection",
       "schedule": "0 22 * * *"
     }
