@@ -131,6 +131,8 @@ export default async function handler(req, res) {
       const text = update.message.text;
       
       console.log(`Ontvangen bericht van ${chatId}: ${text}`);
+      console.log('Debug - notionToken exists:', !!notionToken, 'databaseId exists:', !!databaseId);
+
       
       let replyMessage = '';
       
