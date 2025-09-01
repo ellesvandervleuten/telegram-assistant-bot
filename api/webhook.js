@@ -14,33 +14,59 @@ async function saveToNotion(message, reply, moment = 'chat') {
   }
   
   try {
-    // Exact volgens jouw Notion database structuur
+    // Parse specifieke waarden uit het bericht
+    const energyValue = parseEnergyFromText(message);
+    const sleepHours = parseSleepHoursFromText(message);
+    const sleepStart = parseSleepStartFromText(message);
+    
+    console.log('[Notion] Parsed values:', { 
+      energy: energyValue, 
+      sleepHours: sleepHours, 
+      sleepStart: sleepStart 
+    });
+
+    // Basis properties die altijd worden toegevoegd
+    const properties = {
+      "DateTime": { 
+        date: { 
+          start: new Date().toISOString() 
+        } 
+      },
+      "Moment": { 
+        select: { name: moment } 
+      },
+      "Message": { 
+        rich_text: [{ 
+          text: { 
+            content: message.substring(0, 2000) 
+          } 
+        }] 
+      },
+      "Reply": { 
+        rich_text: [{ 
+          text: { 
+            content: reply.substring(0, 2000) 
+          } 
+        }] 
+      }
+    };
+
+    // Voeg specifieke waarden toe als ze gevonden zijn
+    if (energyValue) {
+      properties["Energy"] = { number: energyValue.number };
+    }
+    
+    if (sleepHours) {
+      properties["Sleep Hours"] = { number: sleepHours.number };
+    }
+    
+    if (sleepStart) {
+      properties["Sleep Start"] = sleepStart;
+    }
+
     const body = {
       parent: { database_id: databaseId },
-      properties: {
-        "DateTime": { 
-          date: { 
-            start: new Date().toISOString() // Full datetime
-          } 
-        },
-        "Moment": { 
-          select: { name: moment } 
-        },
-        "Message": { 
-          rich_text: [{ 
-            text: { 
-              content: message.substring(0, 2000) 
-            } 
-          }] 
-        },
-        "Reply": { 
-          rich_text: [{ 
-            text: { 
-              content: reply.substring(0, 2000) 
-            } 
-          }] 
-        }
-      }
+      properties: properties
     };
 
     console.log('[Notion] POST /v1/pages start');
