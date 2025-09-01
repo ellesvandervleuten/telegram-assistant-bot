@@ -48,29 +48,84 @@ function getRandomMessage(messages) {
 }
 
 function parseEnergyFromText(text) {
-  const m = text.match(/(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i);
-  if (!m) return null;
-  const n = parseInt(m[1] || m[2], 10);
-  return n >= 1 && n <= 10 ? n : null;
+  // Zoek naar patronen zoals: "energie is 8", "mijn energie 7", "8/10", etc.
+  const patterns = [
+    /(?:mijn\s+)?(?:energy|energie)(?:\s+is|\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /(\d+)\/10/,
+    /energie\s*(\d+)/i,
+    /energy\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
 }
 
 function parseSleepHoursFromText(text) {
-  const m = text.match(/(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i);
-  if (!m) return null;
-  const n = parseFloat(m[1]);
-  return n >= 0 && n <= 15 ? n : null;
+  // Zoek naar patronen zoals: "8u 4min", "7.5 uur", "8 hours", etc.
+  const patterns = [
+    /(\d+)u\s*(\d+)?min/i,  // "8u 4min" format
+    /(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)(?!\s*\d+min)/i, // "8.5 uur" maar niet "8u 4min"
+    /(?:slept|geslapen|geslaap)\s*(?:\w+\s+)*?(\d+)u\s*(\d+)?min/i, // "geslapen 8u 4min"
+    /(?:slept|geslapen|geslaap)\s*(?:\w+\s+)*?(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      if (m[2] !== undefined) {
+        // Format zoals "8u 4min"
+        const hours = parseInt(m[1], 10);
+        const minutes = parseInt(m[2], 10);
+        const total = hours + (minutes / 60);
+        if (total >= 0 && total <= 15) return Math.round(total * 100) / 100; // Afgerond op 2 decimalen
+      } else {
+        // Format zoals "8.5 uur"
+        const n = parseFloat(m[1]);
+        if (n >= 0 && n <= 15) return n;
+      }
+    }
+  }
+  return null;
 }
 
 function parseSleepStartFromText(text) {
-  const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
-  return m ? m[1] : null;
+  // Zoek naar patronen zoals: "om 00:31 in slaap gevallen", "bed om 23:30", etc.
+  const patterns = [
+    /om\s*(\d{1,2}[:.]?\d{2})\s*in\s*slaap/i, // "om 00:31 in slaap gevallen"
+    /(\d{1,2}[:.]?\d{2})\s*in\s*slaap/i, // "00:31 in slaap gevallen"
+    /(?:bed|slapen)(?:\s*(?:at|om|around)\s*)(\d{1,2}[:.]?\d{2})/i,
+    /(?:at|om|around)\s*(\d{1,2}[:.]?\d{2})\s*(?:bed|slapen)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) return m[1];
+  }
+  return null;
 }
 
 function parseSleepScoreFromText(text) {
-  const m = text.match(/(?:sleep\s*score|slaap\s*score|slaapscore)[:\s]*(\d+)(?:\/10)?|(?:sleep|slaap)[:\s]*(\d+)\/10/i);
-  if (!m) return null;
-  const n = parseInt(m[1] || m[2], 10);
-  return n >= 1 && n <= 10 ? n : null;
+  // Zoek naar patronen zoals: "slaapscore 89", "sleep score: 85", etc.
+  const patterns = [
+    /(?:sleep\s*score|slaap\s*score|slaapscore)(?:\s*[:=]\s*|\s+)(\d+)/i,
+    /slaapscore\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      // Slaapscores kunnen hoger zijn dan 10 (zoals 89), dus geen maximum
+      if (n >= 0 && n <= 100) return n;
+    }
+  }
+  return null;
 }
 
 function determineMoment() {
@@ -317,24 +372,30 @@ export default async function handler(req, res) {
 
 Je kunt altijd gewoon met me chatten!`;
     } else {
-      // Parse energie uit het bericht voor de reply
+      // Parse alle waarden uit het bericht voor de reply
       const energy = parseEnergyFromText(text);
       const sleepHours = parseSleepHoursFromText(text);
       const sleepScore = parseSleepScoreFromText(text);
+      const sleepStart = parseSleepStartFromText(text);
       
-      replyMessage = '';
+      let replyParts = [];
       
       if (energy !== null) {
-        replyMessage += `📝 Energie ${energy}/10 genoteerd! `;
+        replyParts.push(`📝 Energie ${energy}/10 genoteerd!`);
       }
       if (sleepHours !== null) {
-        replyMessage += `💤 ${sleepHours} uur slaap gelogd! `;
+        replyParts.push(`💤 ${sleepHours} uur slaap gelogd!`);
       }
       if (sleepScore !== null) {
-        replyMessage += `😴 Slaapscore ${sleepScore}/10 opgeslagen! `;
+        replyParts.push(`😴 Slaapscore ${sleepScore} opgeslagen!`);
+      }
+      if (sleepStart) {
+        replyParts.push(`🛏️ Bedtijd ${sleepStart} genoteerd!`);
       }
       
-      if (energy === null && sleepHours === null && sleepScore === null) {
+      if (replyParts.length > 0) {
+        replyMessage = replyParts.join(' ') + `\n\nVolledige bericht: "${text}"`;
+      } else {
         replyMessage = `Bedankt voor je bericht: "${text}". Ik heb het genoteerd! 📝`;
       }
     }
