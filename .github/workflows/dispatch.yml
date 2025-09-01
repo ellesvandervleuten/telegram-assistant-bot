@@ -1,0 +1,12 @@
+name: Dispatch Workflow
+
+on:
+  repository_dispatch:
+    types: [half-hourly]
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo dispatch gestart
+        run: echo "Workflow gestart via Google Apps Script"
