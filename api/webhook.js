@@ -26,17 +26,17 @@ const MORNING_MESSAGES = [
 ];
 
 const WORKDAY_START_MESSAGES = [
-  '💼 Werkdag start! Wat is je belangrijkste prioriteit vandaag?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '🚀 Focus time! Welke taak pak je als eerste aan?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '⚡ Tijd om te beginnen! Wat moet vandaag echt af?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '✨ Dagstart werkmode! Waar ga je je op focussen?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?'
+  '💼 Werkdag start! Wat is je belangrijkste prioriteit vandaag?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '🚀 Focus time! Welke taak pak je als eerste aan?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '⚡ Tijd om te beginnen! Wat moet vandaag echt af?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '✨ Dagstart werkmode! Waar ga je je op focussen?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?'
 ];
 
 const LUNCH_MESSAGES = [
-  '🍽️ Lunchtijd! Wat eet je?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '🥗 Pauze moment! Hoe gaat je dag tot nu toe?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '☕ Lunch break! Wat heb je al bereikt vandaag?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?',
-  '✨ Herstel, dan weer knallen!\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie?'
+  '🍽️ Lunchtijd! Wat eet je?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '🥗 Pauze moment! Hoe gaat je dag tot nu toe?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '☕ Lunch break! Wat heb je al bereikt vandaag?\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+  '✨ Herstel, dan weer knallen!\n\nProductiviteit, stemming, stress (1-10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?'
 ];
 
 const EVENING_MESSAGES = [
@@ -114,16 +114,17 @@ function parseStressFromText(text) {
 
 function parseWorkTypeFromText(text) {
   const patterns = [
-    /(?:bezig\s+met|werk|werkend\s+aan|focus\s+op)(?:\s*[:=]\s*|\s+)(opdracht|marketing|sales|administratie|admin)/i,
-    /(opdracht|marketing|sales|administratie|admin)/i
+    /(?:bezig\s+met|werk|werkend\s+aan|focus\s+op)(?:\s*[:=]\s*|\s+)(opdracht|marketing|sales|administratie|admin|ontspanning|kennisvergaring|kennis)/i,
+    /(opdracht|marketing|sales|administratie|admin|ontspanning|kennisvergaring|kennis)/i
   ];
   
   for (const pattern of patterns) {
     const m = text.match(pattern);
     if (m) {
       let workType = m[1].toLowerCase();
-      // Normaliseer admin naar administratie
+      // Normaliseer variaties
       if (workType === 'admin') workType = 'administratie';
+      if (workType === 'kennis') workType = 'kennisvergaring';
       return workType;
     }
   }
@@ -449,13 +450,13 @@ Hoe voel je je wakker worden (1–10)?
   } else if (messageType === 'afternoon') {
     scheduledMessage = `✅ Workday afsluiter! Wat zijn 3 dingen die vandaag gelukt zijn?
 
-Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?`;
+Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?`;
   } else if (messageType === 'evening') {
     const randomOpener = getRandomMessage(EVENING_MESSAGES);
     scheduledMessage = `${randomOpener}
 Hoeveel rust geef je jezelf vandaag (1–10)?`;
   } else if (messageType === 'hourly') {
-    scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?';
+    scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?';
   }
 
   if (scheduledMessage) {
