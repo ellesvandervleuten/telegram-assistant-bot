@@ -21,17 +21,17 @@ const MORNING_MESSAGES = [
 const WORKDAY_START_MESSAGES = [
   '💼 Tijd om te beginnen! Wat is je #1 prioriteit voor vandaag?',
   '🚀 Werkdag start! Welke belangrijke taak ga je als eerst aanpakken?',
-  '⚡ Focus time! Wat moet vandaag echt af zijn?',
-  '✨ Dagstart! Energie nu (1–10)? Waar ben je mee bezig?',
-  '📌 Kies je 3 belangrijkste prioriteiten voor vandaag.'
+  '⚡ Focus time! Energie (1–10)? Waar ben je mee bezig: opdracht/marketing/sales/administratie?',
+  '✨ Dagstart! Energie nu (1–10)? Focus level (1-10)? Bezig met opdracht/marketing/sales/administratie?',
+  '📌 Kies je 3 belangrijkste prioriteiten. Energie & focus nu (1–10)?'
 ];
 
 const LUNCH_MESSAGES = [
-  '🍽️ Lunchtijd! Energie nu (1–10)?',
-  '🥗 Pauze moment! Hoe gaat je dag tot nu toe? En wat eet je?',
-  '☕ Lunch break! Neem even rust. Wat heb je al bereikt vandaag?',
-  '✨ Herstel, dan weer knallen. Waar denk je aan?',
-  '📌 Eén ding dat je straks wél wil afronden?'
+  '🍽️ Lunchtijd! Energie nu (1–10)? Stemming (1-10)?',
+  '🥗 Pauze moment! Hoe gaat je dag? Energie, focus, stress (1–10)?',
+  '☕ Lunch break! Energie & productiviteit tot nu toe (1-10)? Wat eet je?',
+  '✨ Herstel, dan weer knallen. Focus & stress level (1-10)? Bezig met opdracht/marketing/sales/administratie?',
+  '📌 Hoeveel taken heb je al afgerond? Energie nu (1–10)?'
 ];
 
 const EVENING_MESSAGES = [
@@ -61,6 +61,108 @@ function parseEnergyFromText(text) {
     if (m) {
       const n = parseInt(m[1], 10);
       if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
+}
+
+function parseMoodFromText(text) {
+  const patterns = [
+    /(?:mood|stemming)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /stemming\s*(\d+)/i,
+    /mood\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
+}
+
+function parseFocusFromText(text) {
+  const patterns = [
+    /(?:focus|concentratie)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /focus\s*(\d+)/i,
+    /concentratie\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
+}
+
+function parseStressFromText(text) {
+  const patterns = [
+    /(?:stress|spanning)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /stress\s*(\d+)/i,
+    /spanning\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
+}
+
+function parseProductivityFromText(text) {
+  const patterns = [
+    /(?:productiviteit|productief)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /productiviteit\s*(\d+)/i,
+    /productief\s*(\d+)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= 10) return n;
+    }
+  }
+  return null;
+}
+
+function parseWorkTypeFromText(text) {
+  const patterns = [
+    /(?:bezig\s+met|werk|werkend\s+aan|focus\s+op)(?:\s*[:=]\s*|\s+)(opdracht|marketing|sales|administratie|admin)/i,
+    /(opdracht|marketing|sales|administratie|admin)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      let workType = m[1].toLowerCase();
+      // Normaliseer admin naar administratie
+      if (workType === 'admin') workType = 'administratie';
+      return workType;
+    }
+  }
+  return null;
+}
+
+function parseTasksCompletedFromText(text) {
+  const patterns = [
+    /(?:taken\s+af|taken\s+klaar|completed|afgerond)(?:\s*[:=]\s*|\s+)(\d+)/i,
+    /(\d+)\s*(?:taken\s+af|taken\s+klaar|taken\s+afgerond)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 0 && n <= 50) return n; // Max 50 taken per dag lijkt realistisch
     }
   }
   return null;
@@ -173,12 +275,24 @@ async function saveToNotion(message, reply, moment = 'chat') {
     const sleepHours = parseSleepHoursFromText(message);
     const sleepStart = parseSleepStartFromText(message);
     const sleepScore = parseSleepScoreFromText(message);
+    const moodValue = parseMoodFromText(message);
+    const focusValue = parseFocusFromText(message);
+    const stressValue = parseStressFromText(message);
+    const productivityValue = parseProductivityFromText(message);
+    const workType = parseWorkTypeFromText(message);
+    const tasksCompleted = parseTasksCompletedFromText(message);
     
     console.log('[Notion] Final parsed values:', { 
       energy: energyValue, 
       sleepHours: sleepHours, 
       sleepStart: sleepStart,
-      sleepScore: sleepScore 
+      sleepScore: sleepScore,
+      mood: moodValue,
+      focus: focusValue,
+      stress: stressValue,
+      productivity: productivityValue,
+      workType: workType,
+      tasksCompleted: tasksCompleted
     });
 
     // Basis properties die altijd worden toegevoegd
@@ -232,6 +346,38 @@ async function saveToNotion(message, reply, moment = 'chat') {
     if (sleepScore !== null) {
       properties["SleepScore"] = { number: sleepScore };
       console.log('[Notion] Adding SleepScore:', sleepScore);
+    }
+
+    if (moodValue !== null) {
+      properties["Mood"] = { number: moodValue };
+      console.log('[Notion] Adding Mood:', moodValue);
+    }
+
+    if (focusValue !== null) {
+      properties["Focus"] = { number: focusValue };
+      console.log('[Notion] Adding Focus:', focusValue);
+    }
+
+    if (stressValue !== null) {
+      properties["Stress"] = { number: stressValue };
+      console.log('[Notion] Adding Stress:', stressValue);
+    }
+
+    if (productivityValue !== null) {
+      properties["Productivity"] = { number: productivityValue };
+      console.log('[Notion] Adding Productivity:', productivityValue);
+    }
+
+    if (workType) {
+      properties["WorkType"] = { 
+        select: { name: workType } 
+      };
+      console.log('[Notion] Adding WorkType:', workType);
+    }
+
+    if (tasksCompleted !== null) {
+      properties["TasksCompleted"] = { number: tasksCompleted };
+      console.log('[Notion] Adding TasksCompleted:', tasksCompleted);
     }
 
     const body = {
@@ -400,11 +546,29 @@ Je kunt altijd gewoon met me chatten!`;
       const sleepHours = parseSleepHoursFromText(text);
       const sleepScore = parseSleepScoreFromText(text);
       const sleepStart = parseSleepStartFromText(text);
+      const mood = parseMoodFromText(text);
+      const focus = parseFocusFromText(text);
+      const stress = parseStressFromText(text);
+      const productivity = parseProductivityFromText(text);
+      const workType = parseWorkTypeFromText(text);
+      const tasksCompleted = parseTasksCompletedFromText(text);
       
       let replyParts = [];
       
       if (energy !== null) {
         replyParts.push(`📝 Energie ${energy}/10 genoteerd!`);
+      }
+      if (mood !== null) {
+        replyParts.push(`😊 Stemming ${mood}/10 opgeslagen!`);
+      }
+      if (focus !== null) {
+        replyParts.push(`🎯 Focus ${focus}/10 gelogd!`);
+      }
+      if (stress !== null) {
+        replyParts.push(`😰 Stress ${stress}/10 genoteerd!`);
+      }
+      if (productivity !== null) {
+        replyParts.push(`⚡ Productiviteit ${productivity}/10 opgeslagen!`);
       }
       if (sleepHours !== null) {
         replyParts.push(`💤 ${sleepHours} uur slaap gelogd!`);
@@ -414,6 +578,12 @@ Je kunt altijd gewoon met me chatten!`;
       }
       if (sleepStart) {
         replyParts.push(`🛏️ Bedtijd ${sleepStart} genoteerd!`);
+      }
+      if (workType) {
+        replyParts.push(`💼 Werktype: ${workType} gelogd!`);
+      }
+      if (tasksCompleted !== null) {
+        replyParts.push(`✅ ${tasksCompleted} taken afgerond!`);
       }
       
       if (replyParts.length > 0) {
