@@ -67,34 +67,45 @@ function parseEnergyFromText(text) {
 }
 
 function parseSleepHoursFromText(text) {
+  console.log('[Parse] Parsing sleep hours from:', text);
+  
   // Zoek naar patronen zoals: "8u 4min", "7.5 uur", "8 hours", etc.
   const patterns = [
-    /(\d+)u\s*(\d+)?min/i,  // "8u 4min" format
+    /(\d+)u\s*(\d+)min/i,  // "8u 4min" format
     /(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)(?!\s*\d+min)/i, // "8.5 uur" maar niet "8u 4min"
-    /(?:slept|geslapen|geslaap)\s*(?:\w+\s+)*?(\d+)u\s*(\d+)?min/i, // "geslapen 8u 4min"
-    /(?:slept|geslapen|geslaap)\s*(?:\w+\s+)*?(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i
+    /(?:slept|geslapen|geslaap|geslapn)\s*(?:\w+\s+)*?(\d+)u\s*(\d+)min/i, // "geslapen 8u 4min"
+    /(?:slept|geslapen|geslaap|geslapn)\s*(?:\w+\s+)*?(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i
   ];
   
-  for (const pattern of patterns) {
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
     const m = text.match(pattern);
+    console.log(`[Parse] Pattern ${i + 1}:`, pattern, '-> Match:', m);
+    
     if (m) {
-      if (m[2] !== undefined) {
+      if (m[2] !== undefined && m[2] !== '') {
         // Format zoals "8u 4min"
         const hours = parseInt(m[1], 10);
         const minutes = parseInt(m[2], 10);
         const total = hours + (minutes / 60);
-        if (total >= 0 && total <= 15) return Math.round(total * 100) / 100; // Afgerond op 2 decimalen
+        const rounded = Math.round(total * 100) / 100; // Afgerond op 2 decimalen
+        console.log(`[Parse] Found hours+minutes: ${hours}h ${minutes}m = ${rounded}`);
+        if (total >= 0 && total <= 15) return rounded;
       } else {
         // Format zoals "8.5 uur"
         const n = parseFloat(m[1]);
+        console.log(`[Parse] Found decimal hours: ${n}`);
         if (n >= 0 && n <= 15) return n;
       }
     }
   }
+  console.log('[Parse] No sleep hours found');
   return null;
 }
 
 function parseSleepStartFromText(text) {
+  console.log('[Parse] Parsing sleep start from:', text);
+  
   // Zoek naar patronen zoals: "om 00:31 in slaap gevallen", "bed om 23:30", etc.
   const patterns = [
     /om\s*(\d{1,2}[:.]?\d{2})\s*in\s*slaap/i, // "om 00:31 in slaap gevallen"
@@ -103,10 +114,17 @@ function parseSleepStartFromText(text) {
     /(?:at|om|around)\s*(\d{1,2}[:.]?\d{2})\s*(?:bed|slapen)/i
   ];
   
-  for (const pattern of patterns) {
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
     const m = text.match(pattern);
-    if (m) return m[1];
+    console.log(`[Parse] Pattern ${i + 1}:`, pattern, '-> Match:', m);
+    
+    if (m) {
+      console.log(`[Parse] Found sleep start: ${m[1]}`);
+      return m[1];
+    }
   }
+  console.log('[Parse] No sleep start found');
   return null;
 }
 
@@ -146,12 +164,13 @@ async function saveToNotion(message, reply, moment = 'chat') {
   
   try {
     // Parse specifieke waarden uit het bericht
+    console.log('[Notion] Starting to parse message:', message);
     const energyValue = parseEnergyFromText(message);
     const sleepHours = parseSleepHoursFromText(message);
     const sleepStart = parseSleepStartFromText(message);
     const sleepScore = parseSleepScoreFromText(message);
     
-    console.log('[Notion] Parsed values:', { 
+    console.log('[Notion] Final parsed values:', { 
       energy: energyValue, 
       sleepHours: sleepHours, 
       sleepStart: sleepStart,
@@ -192,7 +211,7 @@ async function saveToNotion(message, reply, moment = 'chat') {
     
     if (sleepHours !== null) {
       properties["SleepHours"] = { number: sleepHours };
-      console.log('[Notion] Adding Sleep Hours:', sleepHours);
+      console.log('[Notion] Adding SleepHours:', sleepHours);
     }
     
     if (sleepStart) {
@@ -203,12 +222,12 @@ async function saveToNotion(message, reply, moment = 'chat') {
           } 
         }] 
       };
-      console.log('[Notion] Adding Sleep Start:', sleepStart);
+      console.log('[Notion] Adding SleepStart:', sleepStart);
     }
 
     if (sleepScore !== null) {
       properties["SleepScore"] = { number: sleepScore };
-      console.log('[Notion] Adding Sleep Score:', sleepScore);
+      console.log('[Notion] Adding SleepScore:', sleepScore);
     }
 
     const body = {
