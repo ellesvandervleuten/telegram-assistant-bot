@@ -48,6 +48,23 @@ const EVENING_MESSAGES = [
   '🌙 Sluit je schermen af, open de rust.'
 ];
 
+const BEDTIME_MESSAGES = [
+  '🌙 Het is 23:00. Schermen dicht, gedachten zacht. Morgen ben je jezelf dankbaar.',
+  '🛏️ Tijd om af te ronden. Warmte, stilte, slapen. Je lichaam mag herstellen.',
+  '🌌 Je hoeft nu niets meer. Laat de dag los, adem uit, slaap in.',
+  '💤 Rust is productief: elke minuut slaap betaalt morgen uit.',
+  '📖 Kies voor je avondritueel: licht dimmen, korte notitie, dankbaar, slapen.',
+  '🌟 Vandaag heb je genoeg gedaan. Je bed wacht, je dromen roepen.',
+  '✨ Morgen is een nieuw canvas. Vannacht schildert slaap je kracht terug.',
+  '🕯️ Licht uit, hart open. Elke nacht is een geschenk voor wie durft te rusten.',
+  '🌸 Je gedachten mogen stoppen. Je lichaam neemt het over. Vertrouw de nacht.',
+  '🌙 Slapen is geen luxe, het is liefde voor jezelf. Gun jezelf deze zachtheid.',
+  '💫 De wereld draait door zonder jou. Jij mag nu volledig loslaten.',
+  '🛌 Tussen deze lakens ligt je toekomst: uitgerust, helder, sterk.',
+  '🌊 Laat je dag wegvloeien als water. Morgen vult zich vanzelf met mogelijkheden.',
+  '🎭 Het toneelstuk van vandaag is klaar. Het doek valt, jij mag applaudisseren voor jezelf.'
+];
+
 function getRandomMessage(messages) {
   return messages[Math.floor(Math.random() * messages.length)];
 }
