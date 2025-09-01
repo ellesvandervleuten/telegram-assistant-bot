@@ -420,6 +420,9 @@ Hoeveel rust geef je jezelf vandaag (1–10)?`;
   }
 }
 
+// In-memory cache voor duplicate detection (simpel voor serverless)
+const recentMessages = new Map();
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -452,11 +455,28 @@ export default async function handler(req, res) {
     const message = update.message;
     const receivedChatId = message.chat.id;
     const text = message.text || '';
+    const messageId = message.message_id;
+    
+    // Duplicate check - kijk of we dit bericht recent al hebben verwerkt
+    const messageKey = `${receivedChatId}-${messageId}`;
+    if (recentMessages.has(messageKey)) {
+      console.log('[Webhook] Duplicate message detected, skipping:', messageKey);
+      return res.status(200).json({ status: 'Duplicate message ignored' });
+    }
+    
+    // Voeg toe aan cache (en cleanup oude entries)
+    recentMessages.set(messageKey, Date.now());
+    if (recentMessages.size > 100) {
+      const oldest = [...recentMessages.entries()]
+        .sort(([,a], [,b]) => a - b)
+        .slice(0, 50);
+      oldest.forEach(([key]) => recentMessages.delete(key));
+    }
     
     console.log('[Webhook] Processing message:', { 
       chatId: receivedChatId, 
       text: text,
-      messageId: message.message_id 
+      messageId: messageId 
     });
 
     // Check if this is from the expected chat
