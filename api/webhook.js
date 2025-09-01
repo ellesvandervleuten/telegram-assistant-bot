@@ -8,6 +8,9 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 // Belangrijk: geen polling op serverless
 const bot = new TelegramBot(token || '', { polling: false });
 
+// In-memory cache voor duplicaat preventie (reset bij elke cold start)
+let lastSentMessages = new Map();
+
 // Variatie berichten voor verschillende momenten
 const MORNING_MESSAGES = [
   '🌅 Je bent wakker. Dat is al een overwinning. Vandaag ga je jezelf verrassen.',
@@ -221,6 +224,62 @@ function determineMoment() {
   return 'night';
 }
 
+function shouldSendScheduledMessage(hour, minute, day) {
+  const today = new Date().toISOString().split('T')[0]; // '2025-09-01'
+  
+  let messageType = null;
+  
+  // 🌅 07:55-07:59 - Morning (daily)
+  if (hour === 7 && minute >= 55) {
+    messageType = 'morning';
+  }
+  // 💼 08:30-08:59 - Work start (weekdays only)
+  else if (hour === 8 && minute >= 30 && day >= 1 && day <= 5) {
+    messageType = 'work';
+  }
+  // 🍽️ 12:45-12:59 - Lunch (daily)
+  else if (hour === 12 && minute >= 45) {
+    messageType = 'lunch';
+  }
+  // ✅ 15:30-15:59 - Afternoon check (daily)
+  else if (hour === 15 && minute >= 30) {
+    messageType = 'afternoon';
+  }
+  // 🌙 22:00-22:29 - Evening (daily)
+  else if (hour === 22 && minute >= 0 && minute < 30) {
+    messageType = 'evening';
+  }
+  // ⏰ Hourly check-ins op :30-:59 voor deze uren
+  else if ([9, 10, 11, 13, 14, 16, 18, 20, 21].includes(hour) && minute >= 30) {
+    messageType = `hourly-${hour}`;
+  }
+  
+  if (!messageType) {
+    console.log(`[Schedule] No message type for ${hour}:${minute.toString().padStart(2, '0')}`);
+    return { send: false };
+  }
+  
+  // Check voor duplicaten
+  const key = `${messageType}-${today}`;
+  const lastSent = lastSentMessages.get(key);
+  
+  // Als we dit type bericht vandaag al hebben gestuurd, skip
+  if (lastSent) {
+    console.log(`[Schedule] Skipping duplicate ${messageType} for ${today} (last sent: ${new Date(lastSent).toLocaleTimeString()})`);
+    return { send: false };
+  }
+  
+  // Markeer als verzonden
+  lastSentMessages.set(key, Date.now());
+  console.log(`[Schedule] Will send ${messageType} message`);
+  
+  return { 
+    type: messageType.startsWith('hourly-') ? 'hourly' : messageType, 
+    send: true,
+    messageType: messageType
+  };
+}
+
 async function saveToNotion(message, reply, moment = 'chat') {
   if (!notionToken || !databaseId) {
     console.log('[Notion] Not configured -> skip', { hasToken: !!notionToken, hasDb: !!databaseId });
@@ -366,56 +425,47 @@ async function sendScheduledMessage() {
   
   console.log(`[Scheduled] Current NL time: ${hour}:${minute.toString().padStart(2, '0')}, day: ${day}`);
   
-  let scheduledMessage = '';
-  let scheduleMoment = '';
+  const check = shouldSendScheduledMessage(hour, minute, day);
+  
+  if (!check.send) {
+    console.log('[Scheduled] No message needed at this time');
+    return;
+  }
 
-  // 🌅 07:55 - Ochtend
-  if (hour === 7 && minute === 55) {
+  let scheduledMessage = '';
+  const messageType = check.type;
+
+  // Kies bericht op basis van type
+  if (messageType === 'morning') {
     const randomOpener = getRandomMessage(MORNING_MESSAGES);
     scheduledMessage = `${randomOpener}
 Hoe voel je je wakker worden (1–10)?
 ⏱️ Hoe laat viel je volgens Fitbit in slaap?
 🛏️ Hoeveel uur heb je geslapen?`;
-    scheduleMoment = 'morning';
-  }
-  // 💼 08:30 - Werkdag start (ma-vr)
-  else if (hour === 8 && minute === 30 && day >= 1 && day <= 5) {
+  } else if (messageType === 'work') {
     scheduledMessage = getRandomMessage(WORKDAY_START_MESSAGES);
-    scheduleMoment = 'work';
-  }
-  // 🍽️ 12:45 - Lunch
-  else if (hour === 12 && minute === 45) {
+  } else if (messageType === 'lunch') {
     scheduledMessage = getRandomMessage(LUNCH_MESSAGES);
-    scheduleMoment = 'lunch';
-  }
-  // ⏰ Hourly check-ins
-  else if ([9, 10, 11, 12, 13, 14, 16, 18, 20, 21].includes(hour) && minute === 30) {
-    scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?';
-    scheduleMoment = 'hourly';
-  }
-  // ✅ 15:30 - Workday afsluiter
-  else if (hour === 15 && minute === 30) {
+  } else if (messageType === 'afternoon') {
     scheduledMessage = `✅ Workday afsluiter! Wat zijn 3 dingen die vandaag gelukt zijn?
 
 Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?`;
-    scheduleMoment = 'afternoon';
-  }
-  // 🌙 22:00 - Avond wind-down
-  else if (hour === 22 && minute === 0) {
+  } else if (messageType === 'evening') {
     const randomOpener = getRandomMessage(EVENING_MESSAGES);
     scheduledMessage = `${randomOpener}
 Hoeveel rust geef je jezelf vandaag (1–10)?`;
-    scheduleMoment = 'evening';
+  } else if (messageType === 'hourly') {
+    scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?';
   }
 
   if (scheduledMessage) {
     try {
-      console.log('[Scheduled] Sending message for moment:', scheduleMoment);
+      console.log(`[Scheduled] Sending ${messageType} message:`, scheduledMessage.substring(0, 50) + '...');
       await bot.sendMessage(chatId, scheduledMessage);
-      await saveToNotion('SCHEDULED_MESSAGE', scheduledMessage, scheduleMoment);
-      console.log('[Scheduled] Message sent successfully');
+      await saveToNotion('SCHEDULED_MESSAGE', scheduledMessage, messageType);
+      console.log(`[Scheduled] ${messageType} message sent successfully`);
     } catch (error) {
-      console.error('[Scheduled] Failed to send message:', error);
+      console.error(`[Scheduled] Failed to send ${messageType} message:`, error);
     }
   }
 }
@@ -476,7 +526,7 @@ export default async function handler(req, res) {
 
 🌅 07:55 - Ochtend motivatie  
 💼 08:30 - Werkdag start (ma-vr)
-⏰ 09:30-21:00 - Uurlijkse check-ins
+⏰ 09:30-21:30 - Uurlijkse check-ins
 🍽️ 12:45 - Lunch reminder
 ✅ 15:30 - Workday afsluiter
 🌙 22:00 - Avond reflectie
