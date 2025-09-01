@@ -84,36 +84,50 @@ function parseMoodFromText(text) {
 }
 
 function parseFocusFromText(text) {
+  console.log('[Parse] Parsing focus from:', text);
+  
   const patterns = [
-    /(?:focus|concentratie)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /(?:focus|concentratie)(?:\s+is|\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
     /focus\s*(\d+)/i,
     /concentratie\s*(\d+)/i
   ];
   
-  for (const pattern of patterns) {
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
     const m = text.match(pattern);
+    console.log(`[Parse] Focus pattern ${i + 1}:`, pattern, '-> Match:', m);
+    
     if (m) {
       const n = parseInt(m[1], 10);
+      console.log(`[Parse] Found focus: ${n}`);
       if (n >= 1 && n <= 10) return n;
     }
   }
+  console.log('[Parse] No focus found');
   return null;
 }
 
 function parseStressFromText(text) {
+  console.log('[Parse] Parsing stress from:', text);
+  
   const patterns = [
-    /(?:stress|spanning)(?:\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
+    /(?:stress|spanning)(?:\s+is|\s*[:=]\s*|\s+)(\d+)(?:\/10)?/i,
     /stress\s*(\d+)/i,
     /spanning\s*(\d+)/i
   ];
   
-  for (const pattern of patterns) {
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
     const m = text.match(pattern);
+    console.log(`[Parse] Stress pattern ${i + 1}:`, pattern, '-> Match:', m);
+    
     if (m) {
       const n = parseInt(m[1], 10);
+      console.log(`[Parse] Found stress: ${n}`);
       if (n >= 1 && n <= 10) return n;
     }
   }
+  console.log('[Parse] No stress found');
   return null;
 }
 
@@ -419,10 +433,14 @@ async function sendScheduledMessage() {
     return;
   }
 
+  // Nederlandse tijd (UTC+1/+2)
   const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const day = now.getDay(); // 0=zondag, 1=maandag, etc.
+  const nlTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Amsterdam"}));
+  const hour = nlTime.getHours();
+  const minute = nlTime.getMinutes();
+  const day = nlTime.getDay(); // 0=zondag, 1=maandag, etc.
+  
+  console.log(`[Scheduled] Current NL time: ${hour}:${minute.toString().padStart(2, '0')}, day: ${day}`);
   
   let scheduledMessage = '';
   let scheduleMoment = '';
