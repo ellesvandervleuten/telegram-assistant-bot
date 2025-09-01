@@ -69,12 +69,14 @@ function parseEnergyFromText(text) {
 function parseSleepHoursFromText(text) {
   console.log('[Parse] Parsing sleep hours from:', text);
   
-  // Zoek naar patronen zoals: "8u 4min", "7.5 uur", "8 hours", etc.
+  // Zoek naar patronen zoals: "8 u 4 min", "8u 4min", "7.5 uur", etc.
   const patterns = [
+    /(\d+)\s*u\s*(\d+)\s*min(?:\s+geslapen)?/i,  // "8 u 4 min geslapen"
     /(\d+)u\s*(\d+)min/i,  // "8u 4min" format
-    /(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)(?!\s*\d+min)/i, // "8.5 uur" maar niet "8u 4min"
-    /(?:slept|geslapen|geslaap|geslapn)\s*(?:\w+\s+)*?(\d+)u\s*(\d+)min/i, // "geslapen 8u 4min"
-    /(?:slept|geslapen|geslaap|geslapn)\s*(?:\w+\s+)*?(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i
+    /(?:geslapen|geslaap|geslapn)\s*[,\s]*(\d+)\s*u\s*(\d+)\s*min/i, // "geslapen, 8 u 4 min"
+    // Zorg dat dit patroon NIET matcht met tijd formaten (00:31)
+    /(?:geslapen|geslaap|geslapn)\s*[,\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur)(?!\s*in\s*slaap)/i, // "geslapen 8.5 uur"
+    /(\d+(?:\.\d+)?)\s*(?:hours?|uur)(?:\s+geslapen)?(?!\s*in\s*slaap)(?!.*00:)/i // "8.5 uur geslapen" maar niet bij tijden
   ];
   
   for (let i = 0; i < patterns.length; i++) {
@@ -84,7 +86,7 @@ function parseSleepHoursFromText(text) {
     
     if (m) {
       if (m[2] !== undefined && m[2] !== '') {
-        // Format zoals "8u 4min"
+        // Format zoals "8 u 4 min"
         const hours = parseInt(m[1], 10);
         const minutes = parseInt(m[2], 10);
         const total = hours + (minutes / 60);
@@ -106,9 +108,11 @@ function parseSleepHoursFromText(text) {
 function parseSleepStartFromText(text) {
   console.log('[Parse] Parsing sleep start from:', text);
   
-  // Zoek naar patronen zoals: "om 00:31 in slaap gevallen", "bed om 23:30", etc.
+  // Zoek naar patronen zoals: "Om 00:31 uur in slaap gevallen", etc.
   const patterns = [
+    /om\s*(\d{1,2}[:.]?\d{2})\s*uur\s*in\s*slaap/i, // "Om 00:31 uur in slaap gevallen"
     /om\s*(\d{1,2}[:.]?\d{2})\s*in\s*slaap/i, // "om 00:31 in slaap gevallen"
+    /(\d{1,2}[:.]?\d{2})\s*uur\s*in\s*slaap/i, // "00:31 uur in slaap gevallen"
     /(\d{1,2}[:.]?\d{2})\s*in\s*slaap/i, // "00:31 in slaap gevallen"
     /(?:bed|slapen)(?:\s*(?:at|om|around)\s*)(\d{1,2}[:.]?\d{2})/i,
     /(?:at|om|around)\s*(\d{1,2}[:.]?\d{2})\s*(?:bed|slapen)/i
