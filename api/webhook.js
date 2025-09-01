@@ -51,26 +51,26 @@ function parseEnergyFromText(text) {
   const m = text.match(/(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i);
   if (!m) return null;
   const n = parseInt(m[1] || m[2], 10);
-  return n >= 1 && n <= 10 ? { number: n } : null;
+  return n >= 1 && n <= 10 ? n : null;
 }
 
 function parseSleepHoursFromText(text) {
   const m = text.match(/(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i);
   if (!m) return null;
   const n = parseFloat(m[1]);
-  return n >= 0 && n <= 15 ? { number: n } : null;
+  return n >= 0 && n <= 15 ? n : null;
 }
 
 function parseSleepStartFromText(text) {
   const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
-  return m ? { rich_text: [{ text: { content: m[1] } }] } : null;
+  return m ? m[1] : null;
 }
 
 function parseSleepScoreFromText(text) {
   const m = text.match(/(?:sleep\s*score|slaap\s*score|slaapscore)[:\s]*(\d+)(?:\/10)?|(?:sleep|slaap)[:\s]*(\d+)\/10/i);
   if (!m) return null;
   const n = parseInt(m[1] || m[2], 10);
-  return n >= 1 && n <= 10 ? { number: n } : null;
+  return n >= 1 && n <= 10 ? n : null;
 }
 
 function determineMoment() {
@@ -130,24 +130,30 @@ async function saveToNotion(message, reply, moment = 'chat') {
     };
 
     // Voeg specifieke waarden toe als ze gevonden zijn
-    if (energyValue) {
-      properties["Energy"] = { number: energyValue.number };
-      console.log('[Notion] Adding Energy:', energyValue.number);
+    if (energyValue !== null) {
+      properties["Energy"] = { number: energyValue };
+      console.log('[Notion] Adding Energy:', energyValue);
     }
     
-    if (sleepHours) {
-      properties["Sleep Hours"] = { number: sleepHours.number };
-      console.log('[Notion] Adding Sleep Hours:', sleepHours.number);
+    if (sleepHours !== null) {
+      properties["SleepHours"] = { number: sleepHours };
+      console.log('[Notion] Adding Sleep Hours:', sleepHours);
     }
     
     if (sleepStart) {
-      properties["Sleep Start"] = sleepStart;
+      properties["SleepStart"] = { 
+        rich_text: [{ 
+          text: { 
+            content: sleepStart 
+          } 
+        }] 
+      };
       console.log('[Notion] Adding Sleep Start:', sleepStart);
     }
 
-    if (sleepScore) {
-      properties["SleepScore"] = { number: sleepScore.number };
-      console.log('[Notion] Adding Sleep Score:', sleepScore.number);
+    if (sleepScore !== null) {
+      properties["SleepScore"] = { number: sleepScore };
+      console.log('[Notion] Adding Sleep Score:', sleepScore);
     }
 
     const body = {
@@ -155,7 +161,7 @@ async function saveToNotion(message, reply, moment = 'chat') {
       properties: properties
     };
 
-    console.log('[Notion] POST /v1/pages start with parsed data');
+    console.log('[Notion] POST /v1/pages with properties:', JSON.stringify(properties, null, 2));
     const r = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
@@ -173,9 +179,9 @@ async function saveToNotion(message, reply, moment = 'chat') {
       const json = await r.json();
       console.log('[Notion] Saved OK', { 
         id: json?.id, 
-        parsedEnergy: energyValue?.number,
-        parsedSleepHours: sleepHours?.number,
-        parsedSleepScore: sleepScore?.number 
+        parsedEnergy: energyValue,
+        parsedSleepHours: sleepHours,
+        parsedSleepScore: sleepScore 
       });
     }
   } catch (e) {
@@ -318,17 +324,17 @@ Je kunt altijd gewoon met me chatten!`;
       
       replyMessage = '';
       
-      if (energy) {
-        replyMessage += `📝 Energie ${energy.number}/10 genoteerd! `;
+      if (energy !== null) {
+        replyMessage += `📝 Energie ${energy}/10 genoteerd! `;
       }
-      if (sleepHours) {
-        replyMessage += `💤 ${sleepHours.number} uur slaap gelogd! `;
+      if (sleepHours !== null) {
+        replyMessage += `💤 ${sleepHours} uur slaap gelogd! `;
       }
-      if (sleepScore) {
-        replyMessage += `😴 Slaapscore ${sleepScore.number}/10 opgeslagen! `;
+      if (sleepScore !== null) {
+        replyMessage += `😴 Slaapscore ${sleepScore}/10 opgeslagen! `;
       }
       
-      if (!energy && !sleepHours && !sleepScore) {
+      if (energy === null && sleepHours === null && sleepScore === null) {
         replyMessage = `Bedankt voor je bericht: "${text}". Ik heb het genoteerd! 📝`;
       }
     }
@@ -354,9 +360,9 @@ Je kunt altijd gewoon met me chatten!`;
         chatId: receivedChatId,
         messageLength: text.length,
         moment: moment,
-        parsedEnergy: parseEnergyFromText(text)?.number,
-        parsedSleepHours: parseSleepHoursFromText(text)?.number,
-        parsedSleepScore: parseSleepScoreFromText(text)?.number
+        parsedEnergy: parseEnergyFromText(text),
+        parsedSleepHours: parseSleepHoursFromText(text),
+        parsedSleepScore: parseSleepScoreFromText(text)
       }
     });
 
