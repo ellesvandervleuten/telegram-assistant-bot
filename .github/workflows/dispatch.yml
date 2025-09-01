@@ -1,12 +1,18 @@
-name: Dispatch Workflow
+name: Call Vercel Webhook
 
 on:
   repository_dispatch:
     types: [half-hourly]
 
 jobs:
-  run:
+  call-webhook:
     runs-on: ubuntu-latest
     steps:
-      - name: Repo dispatch gestart
-        run: echo "Workflow gestart via Google Apps Script"
+      - name: Call Vercel API
+        run: |
+          curl -X POST https://telegram-assistant-bot-weld.vercel.app/api/webhook \
+            -H "Content-Type: application/json" \
+            -d '{"source": "google-apps-script"}'
+
+      - name: Log result
+        run: echo "Webhook called successfully at $(date -u) UTC (triggered by Apps Script)"
