@@ -1,17 +1,7 @@
-{
+
   "functions": {
     "api/*.js": {
       "maxDuration": 10
     }
-  },
-  "crons": [
-    {
-      "path": "/api/scheduler",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/evening-reflection",
-      "schedule": "0 22 * * *"
-    }
-  ]
+  }
 }
