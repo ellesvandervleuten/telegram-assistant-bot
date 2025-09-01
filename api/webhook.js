@@ -1,5 +1,5 @@
-
 import TelegramBot from 'node-telegram-bot-api';
+
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const notionToken = process.env.NOTION_TOKEN;
 const databaseId = process.env.NOTION_DATABASE_ID;
@@ -45,6 +45,42 @@ const EVENING_MESSAGES = [
 
 function getRandomMessage(messages) {
   return messages[Math.floor(Math.random() * messages.length)];
+}
+
+function parseEnergyFromText(text) {
+  const m = text.match(/(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i);
+  if (!m) return null;
+  const n = parseInt(m[1] || m[2], 10);
+  return n >= 1 && n <= 10 ? { number: n } : null;
+}
+
+function parseSleepHoursFromText(text) {
+  const m = text.match(/(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return n >= 0 && n <= 15 ? { number: n } : null;
+}
+
+function parseSleepStartFromText(text) {
+  const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
+  return m ? { rich_text: [{ text: { content: m[1] } }] } : null;
+}
+
+function parseSleepScoreFromText(text) {
+  const m = text.match(/(?:sleep\s*score|slaap\s*score|slaapscore)[:\s]*(\d+)(?:\/10)?|(?:sleep|slaap)[:\s]*(\d+)\/10/i);
+  if (!m) return null;
+  const n = parseInt(m[1] || m[2], 10);
+  return n >= 1 && n <= 10 ? { number: n } : null;
+}
+
+function determineMoment() {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 9) return 'morning';
+  if (h >= 9 && h < 12) return 'work';
+  if (h >= 12 && h < 15) return 'lunch';
+  if (h >= 15 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 23) return 'evening';
+  return 'night';
 }
 
 async function saveToNotion(message, reply, moment = 'chat') {
@@ -96,14 +132,22 @@ async function saveToNotion(message, reply, moment = 'chat') {
     // Voeg specifieke waarden toe als ze gevonden zijn
     if (energyValue) {
       properties["Energy"] = { number: energyValue.number };
+      console.log('[Notion] Adding Energy:', energyValue.number);
     }
     
     if (sleepHours) {
       properties["Sleep Hours"] = { number: sleepHours.number };
+      console.log('[Notion] Adding Sleep Hours:', sleepHours.number);
     }
     
     if (sleepStart) {
       properties["Sleep Start"] = sleepStart;
+      console.log('[Notion] Adding Sleep Start:', sleepStart);
+    }
+
+    if (sleepScore) {
+      properties["SleepScore"] = { number: sleepScore.number };
+      console.log('[Notion] Adding Sleep Score:', sleepScore.number);
     }
 
     const body = {
@@ -127,40 +171,16 @@ async function saveToNotion(message, reply, moment = 'chat') {
       console.error('[Notion] API error', r.status, txt);
     } else {
       const json = await r.json();
-      console.log('[Notion] Saved OK', { id: json?.id, parsedEnergy: energyValue?.number });
+      console.log('[Notion] Saved OK', { 
+        id: json?.id, 
+        parsedEnergy: energyValue?.number,
+        parsedSleepHours: sleepHours?.number,
+        parsedSleepScore: sleepScore?.number 
+      });
     }
   } catch (e) {
     console.error('[Notion] Save crash', e);
   }
-}
-
-function parseEnergyFromText(text) {
-  const m = text.match(/(?:energy|energie)[:\s]*(\d+)(?:\/10)?|(\d+)\/10/i);
-  if (!m) return null;
-  const n = parseInt(m[1] || m[2], 10);
-  return n >= 1 && n <= 10 ? { number: n } : null;
-}
-
-function parseSleepHoursFromText(text) {
-  const m = text.match(/(?:slept|geslapen|slaap)[:\s]*(\d+(?:\.\d+)?)\s*(?:hours?|uur|u)/i);
-  if (!m) return null;
-  const n = parseFloat(m[1]);
-  return n >= 0 && n <= 15 ? { number: n } : null;
-}
-
-
-  const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
-  return m ? { rich_text: [{ text: { content: m[1] } }] } : null;
-}
-
-function determineMoment() {
-  const h = new Date().getHours();
-  if (h >= 6 && h < 9) return 'morning';
-  if (h >= 9 && h < 12) return 'work';
-  if (h >= 12 && h < 15) return 'lunch';
-  if (h >= 15 && h < 18) return 'afternoon';
-  if (h >= 18 && h < 23) return 'evening';
-  return 'night';
 }
 
 async function sendScheduledMessage() {
@@ -296,8 +316,10 @@ Je kunt altijd gewoon met me chatten!`;
       const sleepHours = parseSleepHoursFromText(text);
       const sleepScore = parseSleepScoreFromText(text);
       
+      replyMessage = '';
+      
       if (energy) {
-        replyMessage = `📝 Energie ${energy.number}/10 genoteerd! `;
+        replyMessage += `📝 Energie ${energy.number}/10 genoteerd! `;
       }
       if (sleepHours) {
         replyMessage += `💤 ${sleepHours.number} uur slaap gelogd! `;
@@ -344,5 +366,105 @@ Je kunt altijd gewoon met me chatten!`;
       error: 'Internal server error',
       details: error.message 
     });
+  }
+}
+
+async function saveToNotion(message, reply, moment = 'chat') {
+  if (!notionToken || !databaseId) {
+    console.log('[Notion] Not configured -> skip', { hasToken: !!notionToken, hasDb: !!databaseId });
+    return;
+  }
+  
+  try {
+    // Parse specifieke waarden uit het bericht
+    const energyValue = parseEnergyFromText(message);
+    const sleepHours = parseSleepHoursFromText(message);
+    const sleepStart = parseSleepStartFromText(message);
+    const sleepScore = parseSleepScoreFromText(message);
+    
+    console.log('[Notion] Parsed values:', { 
+      energy: energyValue, 
+      sleepHours: sleepHours, 
+      sleepStart: sleepStart,
+      sleepScore: sleepScore 
+    });
+
+    // Basis properties die altijd worden toegevoegd
+    const properties = {
+      "DateTime": { 
+        date: { 
+          start: new Date().toISOString() 
+        } 
+      },
+      "Moment": { 
+        select: { name: moment } 
+      },
+      "Message": { 
+        rich_text: [{ 
+          text: { 
+            content: message.substring(0, 2000) 
+          } 
+        }] 
+      },
+      "Reply": { 
+        rich_text: [{ 
+          text: { 
+            content: reply.substring(0, 2000) 
+          } 
+        }] 
+      }
+    };
+
+    // Voeg specifieke waarden toe als ze gevonden zijn
+    if (energyValue) {
+      properties["Energy"] = { number: energyValue.number };
+      console.log('[Notion] Adding Energy:', energyValue.number);
+    }
+    
+    if (sleepHours) {
+      properties["Sleep Hours"] = { number: sleepHours.number };
+      console.log('[Notion] Adding Sleep Hours:', sleepHours.number);
+    }
+    
+    if (sleepStart) {
+      properties["Sleep Start"] = sleepStart;
+      console.log('[Notion] Adding Sleep Start:', sleepStart);
+    }
+
+    if (sleepScore) {
+      properties["SleepScore"] = { number: sleepScore.number };
+      console.log('[Notion] Adding Sleep Score:', sleepScore.number);
+    }
+
+    const body = {
+      parent: { database_id: databaseId },
+      properties: properties
+    };
+
+    console.log('[Notion] POST /v1/pages start with parsed data');
+    const r = await fetch('https://api.notion.com/v1/pages', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!r.ok) {
+      const txt = await r.text();
+      console.error('[Notion] API error', r.status, txt);
+    } else {
+      const json = await r.json();
+      console.log('[Notion] Saved OK', { 
+        id: json?.id, 
+        parsedEnergy: energyValue?.number,
+        parsedSleepHours: sleepHours?.number,
+        parsedSleepScore: sleepScore?.number 
+      });
+    }
+  } catch (e) {
+    console.error('[Notion] Save crash', e);
   }
 }
