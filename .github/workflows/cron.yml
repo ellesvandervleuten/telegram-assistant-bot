@@ -2,7 +2,7 @@ name: Call Vercel Webhook
 on:
   schedule:
     # Elke 30 minuten
-    - cron: '*/30 * * * *'
+    - cron:  '0,30 * * * *'
   # Handmatig triggeren voor testen
   workflow_dispatch:
 
