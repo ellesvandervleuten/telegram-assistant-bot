@@ -12,7 +12,7 @@ jobs:
         run: |
           curl -X POST https://telegram-assistant-bot-weld.vercel.app/api/webhook \
             -H "Content-Type: application/json" \
-            -d '{"source": "google-apps-script"}'
+            -d '{"source": "github-actions"}'
 
       - name: Log result
         run: echo "Webhook called successfully at $(date -u) UTC (triggered by Apps Script)"
