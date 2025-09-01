@@ -389,7 +389,7 @@ Hoe voel je je wakker worden (1–10)?
     scheduleMoment = 'lunch';
   }
   // ⏰ Hourly check-ins
-  else if ([9, 10, 11, 12, 13, 14, 16, 18, 20, 21].includes(hour) && minute === 48) {
+  else if ([9, 10, 11, 12, 13, 14, 16, 18, 20, 21].includes(hour) && minute === 30) {
     scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie?';
     scheduleMoment = 'hourly';
   }
