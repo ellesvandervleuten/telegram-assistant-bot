@@ -1,3 +1,4 @@
+
 import TelegramBot from 'node-telegram-bot-api';
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const notionToken = process.env.NOTION_TOKEN;
@@ -57,11 +58,13 @@ async function saveToNotion(message, reply, moment = 'chat') {
     const energyValue = parseEnergyFromText(message);
     const sleepHours = parseSleepHoursFromText(message);
     const sleepStart = parseSleepStartFromText(message);
+    const sleepScore = parseSleepScoreFromText(message);
     
     console.log('[Notion] Parsed values:', { 
       energy: energyValue, 
       sleepHours: sleepHours, 
-      sleepStart: sleepStart 
+      sleepStart: sleepStart,
+      sleepScore: sleepScore 
     });
 
     // Basis properties die altijd worden toegevoegd
@@ -145,7 +148,7 @@ function parseSleepHoursFromText(text) {
   return n >= 0 && n <= 15 ? { number: n } : null;
 }
 
-function parseSleepStartFromText(text) {
+
   const m = text.match(/(?:bed|slapen)\s*(?:at|om|around)[:\s]*(\d{1,2}[:.]?\d{0,2})/i);
   return m ? { rich_text: [{ text: { content: m[1] } }] } : null;
 }
@@ -291,6 +294,7 @@ Je kunt altijd gewoon met me chatten!`;
       // Parse energie uit het bericht voor de reply
       const energy = parseEnergyFromText(text);
       const sleepHours = parseSleepHoursFromText(text);
+      const sleepScore = parseSleepScoreFromText(text);
       
       if (energy) {
         replyMessage = `📝 Energie ${energy.number}/10 genoteerd! `;
@@ -298,8 +302,11 @@ Je kunt altijd gewoon met me chatten!`;
       if (sleepHours) {
         replyMessage += `💤 ${sleepHours.number} uur slaap gelogd! `;
       }
+      if (sleepScore) {
+        replyMessage += `😴 Slaapscore ${sleepScore.number}/10 opgeslagen! `;
+      }
       
-      if (!energy && !sleepHours) {
+      if (!energy && !sleepHours && !sleepScore) {
         replyMessage = `Bedankt voor je bericht: "${text}". Ik heb het genoteerd! 📝`;
       }
     }
@@ -326,7 +333,8 @@ Je kunt altijd gewoon met me chatten!`;
         messageLength: text.length,
         moment: moment,
         parsedEnergy: parseEnergyFromText(text)?.number,
-        parsedSleepHours: parseSleepHoursFromText(text)?.number
+        parsedSleepHours: parseSleepHoursFromText(text)?.number,
+        parsedSleepScore: parseSleepScoreFromText(text)?.number
       }
     });
 
