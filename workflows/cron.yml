@@ -1,17 +1,17 @@
 name: Call Vercel Webhook
 on:
   schedule:
-    # 07:55 NL (05:55 UTC)
+    # 07:55 NL (05:55 UTC) - Ochtend
     - cron: '55 5 * * *'
-    # 08:30 NL ma-vr (06:30 UTC)
+    # 08:30 NL ma-vr (06:30 UTC) - Werkdag start  
     - cron: '30 6 * * 1-5'
-    # 12:45 NL (10:45 UTC)
+    # 12:45 NL (10:45 UTC) - Lunch
     - cron: '45 10 * * *'
-    # 15:30 NL (13:30 UTC)
+    # 15:30 NL (13:30 UTC) - Middag afsluiter
     - cron: '30 13 * * *'
-    # 22:00 NL (20:00 UTC)
+    # 22:00 NL (20:00 UTC) - Avond
     - cron: '0 20 * * *'
-    # Uurlijkse check-ins op :30 NL (dus ook :30 UTC)
+    # Uurlijkse check-ins op :30 NL
     - cron: '30 7,8,9,10,11,12,14,16,18,19 * * *'
   workflow_dispatch:
 
