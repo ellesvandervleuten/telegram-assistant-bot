@@ -267,6 +267,10 @@ function shouldSendScheduledMessage(hour, minute, day) {
   else if (hour === 22 && minute >= 0 && minute < 30) {
     messageType = 'evening';
   }
+  // 🛏️ 23:00-23:29 - Bedtime (daily)
+  else if (hour === 23 && minute >= 0 && minute < 30) {
+    messageType = 'bedtime';
+  }
   // ⏰ Hourly check-ins op :30-:59 voor deze uren
   else if ([9, 10, 11, 13, 14, 16, 18, 20, 21].includes(hour) && minute >= 30) {
     messageType = `hourly-${hour}`;
@@ -472,8 +476,20 @@ Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/a
     const randomOpener = getRandomMessage(EVENING_MESSAGES);
     scheduledMessage = `${randomOpener}
 Hoeveel rust geef je jezelf vandaag (1–10)?`;
+  } else if (messageType === 'bedtime') {
+    scheduledMessage = getRandomMessage(BEDTIME_MESSAGES);
   } else if (messageType === 'hourly') {
-    scheduledMessage = '⏰ Check-in: Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?';
+    const hourlyMessages = [
+      '💫 Hoe gaat het op dit moment? Productiviteit, stemming, stress (1–10)? Wat heb je in je focus: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '✨ Eventjes bijpraten! Hoe voel je je nu? Productiviteit, stemming, stress (1–10)? Waar ben je mee bezig: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '🌟 Check-in moment! Hoe staat het ervoor? Productiviteit, stemming, stress (1–10)? Focus ligt op: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '⭐ Hoe voel je jezelf nu? Productiviteit, stemming, stress (1–10)? Aan het werk met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '💖 Kort tussendoortje - hoe gaat ie? Productiviteit, stemming, stress (1–10)? Bezig met: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '🌈 Moment van aandacht voor jezelf. Hoe voel je je? Productiviteit, stemming, stress (1–10)? Focus: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '🎯 Hoe is je flow nu? Productiviteit, stemming, stress (1–10)? Waar leg je je energie op: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?',
+      '💝 Even bij jezelf inkijken - hoe gaat het? Productiviteit, stemming, stress (1–10)? Werkend aan: opdracht/marketing/sales/administratie/ontspanning/kennisvergaring?'
+    ];
+    scheduledMessage = getRandomMessage(hourlyMessages);
   }
 
   if (scheduledMessage) {
