@@ -11,10 +11,11 @@ on:
     - cron: '30 13 * * *'
     # 22:00 NL (20:00 UTC) - Avond
     - cron: '0 20 * * *'
+    # 23:00 NL (21:00 UTC) - Bedtime 🌙
+    - cron: '0 21 * * *'
     # Uurlijkse check-ins op :30 NL
     - cron: '30 7,8,9,10,11,12,14,16,18,19 * * *'
   workflow_dispatch:
-
 jobs:
   call-webhook:
     runs-on: ubuntu-latest
