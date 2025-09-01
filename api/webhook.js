@@ -14,16 +14,32 @@ async function saveToNotion(message, reply, moment = 'chat') {
   }
   
   try {
+    // Exact volgens jouw Notion database structuur
     const body = {
       parent: { database_id: databaseId },
       properties: {
-        DateTime: { date: { start: new Date().toISOString() } },
-        Moment: { select: { name: moment } },
-        Message: { rich_text: [{ text: { content: message.substring(0, 2000) } }] },
-        Reply: { rich_text: [{ text: { content: reply.substring(0, 2000) } }] },
-        Energy: parseEnergyFromText(reply),
-        SleepHours: parseSleepHoursFromText(reply),
-        SleepStart: parseSleepStartFromText(reply)
+        "DateTime": { 
+          date: { 
+            start: new Date().toISOString() // Full datetime
+          } 
+        },
+        "Moment": { 
+          select: { name: moment } 
+        },
+        "Message": { 
+          rich_text: [{ 
+            text: { 
+              content: message.substring(0, 2000) 
+            } 
+          }] 
+        },
+        "Reply": { 
+          rich_text: [{ 
+            text: { 
+              content: reply.substring(0, 2000) 
+            } 
+          }] 
+        }
       }
     };
 
